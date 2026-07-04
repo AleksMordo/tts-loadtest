@@ -1,0 +1,77 @@
+# Параметры стенда. Используются Terraform (через tfvars-генерацию), Ansible и раннером.
+provider: yandex
+
+cloud:
+  folder_id: ""                       # ID каталога YC (yc config get folder-id)
+  zone: ru-central1-a
+  # Платформа GPU-ВМ. Кандидаты: gpu-standard-v3 (A100 80GB), standard-v3-t4 (T4 16GB),
+  # gpu-standard-v2 (V100 32GB), gpu-standard-v4 / новая V4-платформа.
+  # ВНИМАНИЕ: перед запуском сверить актуальный список платформ и цены:
+  # https://yandex.cloud/ru/docs/compute/pricing
+  gpu_platform_id: gpu-standard-v3
+  gpu_count: 1
+  gpu_vm_cores: 28           # vCPU у GPU-платформ фиксированы на конфигурацию — сверить с докой
+  gpu_vm_memory_gb: 119
+  # Диски и loadgen-ВМ ужаты под дефолтные квоты облака
+  # (32 vCPU, 128 GB RAM, 200 GB SSD суммарно): 28+4 vCPU, 119+8 GB RAM, 150+30 GB SSD.
+  gpu_disk_gb: 150           # SSD: веса модели (~5 GB) + docker images (~15 GB) + запас
+  loadgen_cores: 4
+  loadgen_memory_gb: 8
+  loadgen_disk_gb: 30
+  preemptible: false         # true = прерываемые ВМ (дешевле). Полку 100 линий гнать на обычной!
+  allowed_ssh_cidr: ""                   # ваш публичный IPv4 в формате x.x.x.x/32 (curl -4 ifconfig.me); если IP сменится — обновить и terraform apply
+  image_family: ubuntu-2204-lts   # если не GPU-optimized образ — роль nvidia поставит драйверы
+  ssh_public_key_path: "~/.ssh/id_ed25519.pub"
+
+tts:
+  # Сервис собирается на GPU-ВМ из GitHub (private registry не используется).
+  repo_url: https://github.com/Brakanier/FastCosyVoice
+  git_ref: main                    # перед официальным прогоном зафиксировать коммит!
+  model_id: iic/CosyVoice2-0.5B    # ModelScope id; веса качаются при деплое (~5 GB)
+  sample_rate: 24000   # CosyVoice2 отдаёт 24 kHz; ресемплинг до телефонных 8 kHz — вне теста
+
+  # Бэкенд сервинга: triton | python_grpc.
+  # python_grpc (runtime/python/grpc + наши патчи) замерен 2026-07-03: N_max=0
+  # при SLA (TTFB 1.4s одиночный, GPU util ~2%, узкое место CPU/GIL).
+  # triton (runtime/triton_trtllm, Triton + TensorRT-LLM) — основной путь.
+  # triton_v3 — CosyVoice3 (русский работает!); triton — CosyVoice2 (русский сломан);
+  # python_grpc — для сравнения. Итоги замеров: results/report_a100_2026-07-03.md
+  backend: triton_v3
+  transport: triton    # транспорт клиента: triton | grpc | ws (должен соответствовать backend)
+
+  # --- параметры backend: triton ---
+  # ВАЖНО: triton-runtime берётся из АПСТРИМА CosyVoice (каталог форка несовместим
+  # с образом 25.06 — проверено 2026-07-03). Коммит запинован под эпоху образа.
+  triton_runtime_repo: https://github.com/FunAudioLLM/CosyVoice
+  triton_runtime_ref: e8bf717            # для backend triton (v2): эпоха образа 25.06
+  v3_runtime_ref: 074ca6d              # для backend triton_v3: HEAD на 2026-07-03
+  v3_model_name: cosyvoice3              # имя BLS-модели (транспорт клиента)
+  v3_grpc_port: 18001                    # gRPC-порт tritonserver v3
+  # Сборка своего образа на свежем TRT-LLM (1.x): баг зависания decoupled-стрима
+  # (issue FunAudioLLM/CosyVoice#1866, BLS>=2) чинился в TRT-LLM после 0.20.
+  # false = использовать готовый soar97/triton-cosyvoice:25.06 (TRT-LLM 0.18, баг есть).
+  triton_build_image: true
+  triton_base_image: nvcr.io/nvidia/tritonserver:25.12-trtllm-python-py3
+  triton_image: soar97/triton-cosyvoice:25.06   # используется при triton_build_image: false
+  triton_http_port: 8000
+  triton_grpc_port: 8001     # endpoint клиента
+  triton_metrics_port: 8002  # прометей скрейпит отсюда
+  # BLS>1 клинит вызовы tensorrt_llm в этой сборке (2-й инстанс виснет навсегда);
+  # BLS=1 стабилен, но сериализует пайплайн (конкурентность=1). См. README/отчёт.
+  bls_instance_num: 1
+  triton_max_batch_size: 16
+  # HF нужен для yuekai/cosyvoice2_llm (стадия 0); из YC надёжнее через зеркало
+  hf_endpoint: https://huggingface.co   # прямой доступ из YC работает (проверено)
+
+  # --- параметры backend: python_grpc (оставлен для сравнения) ---
+  port: 50000
+  max_conc: 128        # --max_conc: max_workers + лимит одновременных RPC (сверх — reject)
+  stream: true         # наш патч: аудио чанками по мере генерации
+  fp16: true           # сток fp32 даёт RTF>1 даже на A100
+  load_trt: true       # TensorRT flow decoder; первый старт строит план ~10-20 мин
+
+monitoring:
+  prometheus_port: 9090
+  dcgm_exporter_port: 9400
+  node_exporter_port: 9100
+  retention: 2d                # хранение только на время теста

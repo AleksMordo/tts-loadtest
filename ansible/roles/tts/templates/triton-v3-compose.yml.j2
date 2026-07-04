@@ -1,0 +1,27 @@
+services:
+  tts:
+    image: {{ tts_triton_image }}
+    restart: unless-stopped
+    shm_size: '2gb'
+    working_dir: /workspace/CosyVoice/runtime/triton_trtllm
+    # x_transformers/s3tokenizer обновляются при каждом старте: образ 25.06
+    # несёт старые версии, а ставить их навсегда некуда (контейнер эфемерный)
+    command: >-
+      bash -c "pip3 install -q --upgrade x_transformers s3tokenizer &&
+      bash run_cosyvoice3.sh 3 3"
+    environment:
+      - PYTHONIOENCODING=utf-8
+    network_mode: host
+    volumes:
+      - /opt/v3/CosyVoice:/workspace/CosyVoice
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144

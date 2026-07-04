@@ -1,0 +1,68 @@
+---
+# Бэкенд python_grpc: штатный runtime/python/grpc + наши патчи
+- name: Подложить патченный grpc-сервер (stream-режим)
+  ansible.builtin.copy:
+    src: grpc_server_stream.py
+    dest: /opt/tts/FastCosyVoice/runtime/python/grpc/server.py
+    mode: "0644"
+
+- name: Патченный сервер для volume-монтирования (правки без пересборки образа)
+  ansible.builtin.copy:
+    src: grpc_server_stream.py
+    dest: /opt/tts/grpc_server.py
+    mode: "0644"
+  register: tts_server_patch
+
+- name: Развернуть Dockerfile стенда
+  ansible.builtin.template:
+    src: Dockerfile.j2
+    dest: /opt/tts/FastCosyVoice/Dockerfile.stand
+    mode: "0644"
+
+- name: Исключить .git из контекста сборки (стабильность кеша слоёв)
+  ansible.builtin.copy:
+    content: |
+      .git
+      .github
+    dest: /opt/tts/FastCosyVoice/.dockerignore
+    mode: "0644"
+
+- name: Собрать образ TTS (~15-25 мин при первом запуске)
+  ansible.builtin.command:
+    cmd: docker build -t cosyvoice-stand:latest -f Dockerfile.stand .
+    chdir: /opt/tts/FastCosyVoice
+  changed_when: true
+
+- name: Скачать веса модели с ModelScope (однократно, кешируются на диске)
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm -v /opt/tts/models:/models cosyvoice-stand:latest
+      python3 -c "from modelscope import snapshot_download;
+      snapshot_download('{{ tts_model_id }}', local_dir='/models/{{ tts_model_id | basename }}')"
+    creates: "/opt/tts/models/{{ tts_model_id | basename }}"
+
+- name: Развернуть docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/tts/docker-compose.yml
+    mode: "0644"
+
+- name: Поднять TTS-сервис
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/tts
+  register: tts_up
+  changed_when: "'Started' in tts_up.stderr or 'Created' in tts_up.stderr"
+
+- name: Перезапустить TTS при изменении патча сервера
+  ansible.builtin.command:
+    cmd: docker compose restart tts
+    chdir: /opt/tts
+  when: tts_server_patch is changed
+  changed_when: true
+
+- name: Дождаться готовности TTS (загрузка модели в VRAM — до 10 мин)
+  ansible.builtin.wait_for:
+    port: "{{ tts_port }}"
+    host: 127.0.0.1
+    timeout: 900

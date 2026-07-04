@@ -1,0 +1,8 @@
+---
+- name: Экспортеры мониторинга на GPU-хосте (ручная v3-сессия)
+  hosts: gpu
+  become: true
+  roles:
+    - role: monitoring
+      vars:
+        monitoring_role_mode: exporters

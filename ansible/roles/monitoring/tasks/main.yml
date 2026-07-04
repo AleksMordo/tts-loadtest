@@ -1,0 +1,35 @@
+---
+# monitoring_role_mode: exporters (GPU-хост) | server (prometheus на loadgen-ВМ)
+- name: Создать каталог мониторинга
+  ansible.builtin.file:
+    path: /opt/monitoring
+    state: directory
+    mode: "0755"
+
+- name: Развернуть compose экспортеров (dcgm + node-exporter)
+  ansible.builtin.template:
+    src: exporters-compose.yml.j2
+    dest: /opt/monitoring/docker-compose.yml
+    mode: "0644"
+  when: monitoring_role_mode == 'exporters'
+
+- name: Развернуть prometheus.yml
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus.yml
+    mode: "0644"
+  when: monitoring_role_mode == 'server'
+
+- name: Развернуть compose prometheus (+node-exporter loadgen-ВМ)
+  ansible.builtin.template:
+    src: prometheus-compose.yml.j2
+    dest: /opt/monitoring/docker-compose.yml
+    mode: "0644"
+  when: monitoring_role_mode == 'server'
+
+- name: Поднять мониторинг
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/monitoring
+  register: monitoring_up
+  changed_when: "'Started' in monitoring_up.stderr or 'Created' in monitoring_up.stderr"

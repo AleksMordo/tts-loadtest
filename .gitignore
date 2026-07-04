@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+terraform/**/.terraform/
+terraform/**/.terraform.lock.hcl
+terraform/**/terraform.tfstate*
+terraform/**/terraform.tfvars
+ansible/inventory/hosts.ini
+.pytest_cache/
+.ruff_cache/
+.ansible/
+.DS_Store
+
+# Результаты прогонов: отчёты и метрики публикуем, аудио-сэмплы — нет
+# (сэмплы содержат клонированный голос реального человека)
+results/**/*.wav
+results/smoke_*/
+
+# Референс-аудио: реальные записи голоса не коммитим.
+# Синтетический референс: python scripts/gen_ref_audio.py
+assets/ref_audio/*.wav
+assets/ref_audio/*.txt

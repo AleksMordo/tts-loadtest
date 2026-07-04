@@ -1,0 +1,159 @@
+---
+# Бэкенд triton: Triton Inference Server + TensorRT-LLM (bfloat16), decoupled
+# streaming. Runtime — из АПСТРИМА CosyVoice (triton-каталог форка несовместим
+# с образом 25.06, проверено 2026-07-03), коммит запинован под эпоху образа.
+# Известные особенности (детали в README):
+#   - network_mode: host обязателен — через docker-proxy decoupled-стрим виснет;
+#   - BLS_INSTANCE_NUM=1: инстансы >=2 навсегда виснут на вызове tensorrt_llm;
+#   - kv-кеш поднят с дефолтных 2560 токенов (русские тексты длиннее китайских).
+- name: Клонировать upstream CosyVoice (triton runtime)
+  ansible.builtin.git:
+    repo: "{{ tts_triton_runtime_repo }}"
+    dest: /opt/tts/CosyVoiceUpstream
+    version: "{{ tts_triton_runtime_ref }}"
+    depth: 200
+    force: true
+
+- name: Matcha-TTS в third_party (сабмодули не тянутся с depth)
+  ansible.builtin.git:
+    repo: https://github.com/shivammehta25/Matcha-TTS
+    dest: /opt/tts/CosyVoiceUpstream/third_party/Matcha-TTS
+    depth: 1
+
+- name: Настроить конкурентность BLS в run.sh
+  ansible.builtin.replace:
+    path: /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/run.sh
+    regexp: '^(\s*)BLS_INSTANCE_NUM=\d+'
+    replace: '\1BLS_INSTANCE_NUM={{ tts_bls_instance_num }}'
+
+- name: Настроить max batch size в run.sh
+  ansible.builtin.replace:
+    path: /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/run.sh
+    regexp: '^(\s*)TRITON_MAX_BATCH_SIZE=\d+'
+    replace: '\1TRITON_MAX_BATCH_SIZE={{ tts_triton_max_batch_size }}'
+
+- name: Поднять лимит KV-кеша LLM (сток 2560 токенов мал для русских текстов)
+  ansible.builtin.replace:
+    path: /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/run.sh
+    regexp: 'max_tokens_in_paged_kv_cache:\d+'
+    replace: 'max_tokens_in_paged_kv_cache:65536'
+
+- name: Поднять attention window LLM
+  ansible.builtin.replace:
+    path: /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/run.sh
+    regexp: 'max_attention_window_size:\d+'
+    replace: 'max_attention_window_size:8192'
+
+# hift f0_predictor (conv kernel 3) падает на хвостовом мел-чанке < 3 фреймов
+- name: Скопировать патч token2wav
+  ansible.builtin.copy:
+    src: patch_token2wav.py
+    dest: /opt/tts/patch_token2wav.py
+    mode: "0644"
+
+- name: Применить патч token2wav (паддинг короткого хвостового чанка)
+  ansible.builtin.command:
+    cmd: >-
+      python3 /opt/tts/patch_token2wav.py
+      /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/model_repo/token2wav/1/model.py
+  register: tts_t2w_patch
+  changed_when: "'CHANGED' in tts_t2w_patch.stdout"
+
+# Итоговое имя образа: собранный локально или готовый soar97
+- name: Определить образ сервинга
+  ansible.builtin.set_fact:
+    tts_effective_image: >-
+      {{ 'cosyvoice-triton-stand:latest' if tts_triton_build_image else tts_triton_image }}
+
+- name: Собрать образ на свежем TRT-LLM (база ~25 GB + сборка, при первом запуске долго)
+  when: tts_triton_build_image
+  block:
+    - name: Развернуть Dockerfile.triton
+      ansible.builtin.template:
+        src: Dockerfile.triton.j2
+        dest: /opt/tts/Dockerfile.triton
+        mode: "0644"
+
+    - name: docker build (контекст — runtime/triton_trtllm запинованного апстрима)
+      ansible.builtin.command:
+        cmd: >-
+          docker build -t cosyvoice-triton-stand:latest
+          -f /opt/tts/Dockerfile.triton
+          /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm
+      changed_when: true
+
+- name: Спуллить готовый образ Triton (~20 GB, при первом запуске долго)
+  ansible.builtin.command:
+    cmd: docker pull {{ tts_triton_image }}
+  register: tts_triton_pull
+  changed_when: "'Downloaded newer image' in tts_triton_pull.stdout"
+  when: not tts_triton_build_image
+
+# TRT-LLM engine несовместим между версиями backend'а — при смене образа пересобрать
+- name: Проверить, под какой образ собраны engines
+  ansible.builtin.slurp:
+    src: /opt/tts/.engines_built_for
+  register: tts_engines_marker
+  failed_when: false
+
+- name: Сбросить engines при смене образа
+  ansible.builtin.file:
+    path: "/opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/{{ item }}"
+    state: absent
+  loop:
+    - trt_engines_bfloat16
+    - trt_weights_bfloat16
+  when: >-
+    tts_engines_marker.content is not defined or
+    (tts_engines_marker.content | b64decode | trim) != tts_effective_image
+
+- name: "Стадии 0-1: веса + сборка TRT-LLM engine (одноразово, ~30-60 мин)"
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm --gpus all --shm-size=2g
+      -e PYTHONIOENCODING=utf-8
+      -e HF_ENDPOINT={{ tts_hf_endpoint }}
+      -v /opt/tts/CosyVoiceUpstream:/workspace/CosyVoice
+      -w /workspace/CosyVoice/runtime/triton_trtllm
+      {{ tts_effective_image }}
+      bash -c "pip install -q modelscope && bash run.sh 0 1"
+    creates: /opt/tts/CosyVoiceUpstream/runtime/triton_trtllm/trt_engines_bfloat16
+
+- name: Запомнить, под какой образ собраны engines
+  ansible.builtin.copy:
+    content: "{{ tts_effective_image }}"
+    dest: /opt/tts/.engines_built_for
+    mode: "0644"
+
+- name: "Стадия 2: пересобрать model repo (быстро; учитывает BLS/batch/kv)"
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm --gpus all --shm-size=2g
+      -e PYTHONIOENCODING=utf-8
+      -v /opt/tts/CosyVoiceUpstream:/workspace/CosyVoice
+      -w /workspace/CosyVoice/runtime/triton_trtllm
+      {{ tts_effective_image }}
+      bash run.sh 2 2
+  changed_when: true
+
+- name: Развернуть docker-compose.yml (tritonserver)
+  ansible.builtin.template:
+    src: triton-compose.yml.j2
+    dest: /opt/tts/docker-compose.yml
+    mode: "0644"
+
+- name: Поднять Triton
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/tts
+  register: tts_up
+  changed_when: "'Started' in tts_up.stderr or 'Created' in tts_up.stderr or 'Recreated' in tts_up.stderr"
+
+- name: Дождаться готовности Triton (загрузка моделей — до 15 мин)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ tts_triton_http_port }}/v2/health/ready"
+    status_code: 200
+  register: tts_triton_ready
+  until: tts_triton_ready.status == 200
+  retries: 90
+  delay: 10

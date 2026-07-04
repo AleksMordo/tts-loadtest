@@ -1,0 +1,45 @@
+{
+  "scenario": "spike30_mixed_cached",
+  "mode": "spike",
+  "lines": 30,
+  "spiked_lines": 60,
+  "voice": "cached",
+  "texts": "mixed",
+  "plateau_start_ts": 1783119084.7256446,
+  "spike_ts": 1783119534.7261777,
+  "plateau_end_ts": 1783119984.7290301,
+  "summary_pre": {
+    "requests": 283,
+    "errors": 0,
+    "error_rate": 0.0,
+    "ttfb_p50_ms": 10099.4,
+    "ttfb_p95_ms": 11731.75,
+    "ttfb_p99_ms": 12236.55,
+    "rtf_p50": 7.0336,
+    "rtf_p95": 10.2756,
+    "rtf_max": 20.0549,
+    "underruns": 988,
+    "audio_s_total": 3033.8800000000024
+  },
+  "summary_post": {
+    "requests": 294,
+    "errors": 0,
+    "error_rate": 0.0,
+    "ttfb_p50_ms": 19139.58,
+    "ttfb_p95_ms": 23053.47,
+    "ttfb_p99_ms": 23590.61,
+    "rtf_p50": 14.0696,
+    "rtf_p95": 20.2773,
+    "rtf_max": 21.8514,
+    "underruns": 986,
+    "audio_s_total": 2782.1200000000017
+  },
+  "gpu": {
+    "gpu_util_avg": 99.93333333333332,
+    "gpu_util_max": 100.0,
+    "vram_used_mb_max": 45748.0,
+    "vram_used_mb_min": 45748.0,
+    "cpu_busy_avg": 8.93358938547486,
+    "vram_delta_30m_mb": 0.0
+  }
+}

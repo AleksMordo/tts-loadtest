@@ -1,0 +1,40 @@
+---
+# СГЕНЕРИРОВАНО из config/stand.yaml (scripts/gen_group_vars.py) — не править руками.
+tts_repo_url: https://github.com/Brakanier/FastCosyVoice
+tts_git_ref: main
+tts_model_id: iic/CosyVoice2-0.5B
+tts_backend: triton_v3
+tts_transport: triton
+tts_sample_rate: 24000
+
+# backend: triton
+tts_triton_runtime_repo: https://github.com/FunAudioLLM/CosyVoice
+tts_triton_runtime_ref: e8bf717
+tts_v3_runtime_ref: 074ca6d
+tts_v3_model_name: cosyvoice3
+tts_v3_grpc_port: 18001
+tts_triton_build_image: true
+tts_triton_base_image: nvcr.io/nvidia/tritonserver:25.12-trtllm-python-py3
+tts_triton_image: soar97/triton-cosyvoice:25.06
+tts_triton_http_port: 8000
+tts_triton_grpc_port: 8001
+tts_triton_metrics_port: 8002
+tts_bls_instance_num: 1
+tts_triton_max_batch_size: 16
+tts_hf_endpoint: https://huggingface.co
+
+# backend: python_grpc
+tts_port: 50000
+tts_max_conc: 128
+tts_stream: true
+tts_fp16: true
+tts_load_trt: true
+
+gpu_image_optimized: false
+
+prometheus_port: 9090
+prometheus_retention: 2d
+dcgm_exporter_port: 9400
+node_exporter_port: 9100
+
+repo_dest: /opt/tts-loadtest

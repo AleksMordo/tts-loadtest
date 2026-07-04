@@ -1,0 +1,26 @@
+services:
+  tts:
+    image: cosyvoice-stand:latest
+    restart: unless-stopped
+    command: >-
+      python3 runtime/python/grpc/server.py
+      --port {{ tts_port }}
+      --model_dir /models/{{ tts_model_id | basename }}
+      --max_conc {{ tts_max_conc }}{{ ' --stream' if tts_stream else '' }}{{ ' --fp16' if tts_fp16 | default(true) else '' }}{{ ' --load_trt' if tts_load_trt | default(true) else '' }}
+    ports:
+      - "{{ tts_port }}:{{ tts_port }}"
+    volumes:
+      - /opt/tts/models:/models   # rw: TRT-план строится в каталог модели
+      # патченный сервер поверх вшитого в образ — правки без пересборки
+      - /opt/tts/grpc_server.py:/opt/CosyVoice/runtime/python/grpc/server.py:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144

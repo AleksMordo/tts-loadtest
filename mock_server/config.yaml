@@ -1,0 +1,23 @@
+# Эмуляция поведения GPU. С этими параметрами раннер обязан найти N_max ≈ 20±2
+# (проверяется e2e-тестом tests/test_e2e_mock.py).
+listen: {host: 127.0.0.1, port: 8022, grpc_port: 8023}   # grpc-режим требует make proto
+
+ttfb_ms:
+  base: 120
+  per_active_session: 8        # деградация TTFB с ростом конкурентности
+
+rtf:
+  base: 0.25
+  per_active_session: 0.015    # деградация скорости генерации
+
+clone_extra_ms: 400            # надбавка к TTFB за режим clone (обработка референса)
+
+# После этого числа одновременных сессий «GPU захлёбывается»: к TTFB и RTF
+# добавляются штрафы за каждую сессию сверх лимита (эмуляция сатурации SM/VRAM-bandwidth).
+max_sessions_before_degradation: 20
+overload_ttfb_ms_per_session: 40
+overload_rtf_per_session: 0.1
+
+chunk_ms: 100                  # длительность аудио в одном PCM-чанке
+audio_s_per_word: 0.35         # длительность «синтезированного» аудио на слово
+jitter: 0.1                    # ±10% случайного разброса на тайминги

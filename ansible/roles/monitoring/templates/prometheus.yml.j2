@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: dcgm
+    static_configs:
+      - targets: ["{{ gpu_internal_ip }}:{{ dcgm_exporter_port }}"]
+
+  - job_name: node_gpu
+    static_configs:
+      - targets: ["{{ gpu_internal_ip }}:{{ node_exporter_port }}"]
+
+  - job_name: node_loadgen
+    static_configs:
+      - targets: ["{{ loadgen_internal_ip }}:{{ node_exporter_port }}"]
+
+  - job_name: triton
+    static_configs:
+      - targets: ["{{ gpu_internal_ip }}:{{ tts_triton_metrics_port | default(8002) }}"]

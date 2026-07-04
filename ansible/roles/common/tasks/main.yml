@@ -1,0 +1,41 @@
+---
+- name: Установить базовые пакеты
+  ansible.builtin.apt:
+    name:
+      - chrony
+      - htop
+      - jq
+      - python3-venv
+      - curl
+      - rsync
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Включить chrony (синхронизация времени важна для сравнения метрик)
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+
+- name: Sysctl для нагрузочного стенда (порты, backlog, fd)
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+  loop:
+    - { name: net.ipv4.ip_local_port_range, value: "1024 65535" }
+    - { name: net.core.somaxconn, value: "4096" }
+    - { name: net.ipv4.tcp_tw_reuse, value: "1" }
+    - { name: fs.file-max, value: "1048576" }
+
+- name: Поднять лимиты fd (100 линий * несколько сокетов + запас)
+  community.general.pam_limits:
+    domain: "*"
+    limit_type: "{{ item }}"
+    limit_item: nofile
+    value: "262144"
+  loop:
+    - soft
+    - hard

@@ -1,0 +1,4 @@
+# Опционально: только для gRPC-транспорта (make proto)
+grpcio>=1.60
+grpcio-tools>=1.60
+protobuf>=4

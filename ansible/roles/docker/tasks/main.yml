@@ -1,0 +1,39 @@
+---
+- name: Добавить ключ репозитория Docker
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /usr/share/keyrings/docker.asc
+    mode: "0644"
+
+- name: Добавить репозиторий Docker
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/usr/share/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+
+- name: Установить docker + compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Запустить docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Настроить nvidia runtime для docker (только на GPU-хосте)
+  ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+  when: "'gpu' in group_names"
+  changed_when: true
+  notify: Restart docker
+
+- name: Применить хендлеры сразу
+  ansible.builtin.meta: flush_handlers

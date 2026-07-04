@@ -1,0 +1,9 @@
+---
+profile: moderate
+exclude_paths:
+  - .venv/
+  - results/
+kinds:
+  - playbook: ansible/site.yml
+  - tasks: ansible/roles/*/tasks/*.yml
+  - vars: ansible/inventory/group_vars/*.yml

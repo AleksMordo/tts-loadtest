@@ -1,0 +1,24 @@
+# Кастомный образ Triton+TRT-LLM для CosyVoice2 на свежей базе NVIDIA.
+# Причина: готовый soar97/triton-cosyvoice:25.06 несёт TRT-LLM 0.18 с багом
+# зависания decoupled-стрима (FunAudioLLM/CosyVoice#1866, BLS>=2 клинит LLM).
+# Контекст сборки: runtime/triton_trtllm запинованного апстрима (requirements.txt).
+FROM {{ tts_triton_base_image }}
+ENV DEBIAN_FRONTEND=noninteractive PYTHONIOENCODING=utf-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends cmake git git-lfs && \
+    rm -rf /var/lib/apt/lists/*
+
+# torchaudio: колёс под NVIDIA-сборку torch не бывает — если его нет в образе,
+# собираем из исходников под мажор.минор версии torch образа.
+# USE_CUDA=0: CUDA-ядра torchaudio не нужны (только ресемплинг/загрузка на CPU),
+# а их сборка падает на compute_50 против новой CUDA
+RUN python3 -c "import torchaudio" 2>/dev/null || ( \
+    TA_BRANCH="release/$(python3 -c 'import torch; print(".".join(torch.__version__.split("+")[0].split(".")[:2]))')" && \
+    git clone --depth 1 -b "$TA_BRANCH" https://github.com/pytorch/audio.git /opt/audio && \
+    cd /opt/audio && USE_CUDA=0 python3 setup.py develop )
+
+COPY requirements.txt /workspace/requirements.txt
+RUN pip3 install --no-cache-dir -r /workspace/requirements.txt && \
+    pip3 install --no-cache-dir "huggingface_hub[cli]"
+
+WORKDIR /workspace

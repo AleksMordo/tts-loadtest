@@ -1,0 +1,4 @@
+scenario,lines,voice,texts,requests,ttfb_p50_ms,ttfb_p95_ms,ttfb_p99_ms,rtf_p95,rtf_max,underruns,errors,error_rate,gpu_util_avg,gpu_util_max,vram_used_mb_max,vram_delta_30m_mb,sla_ok
+diag_nmax_short_cached_n1,1,cached,short,1,1380.36,1380.36,1380.36,0.6966,0.6966,0,0,0.0,0.0,0.0,47744.0,44782.39554317549,False
+diag_plateau2_mixed_cached,2,cached,mixed,2,1387.36,3004.25,3004.25,1.4182,1.4182,19,0,0.0,1.4999999999999996,15.0,47860.0,44800.44568245125,False
+diag_plateau4_short_clone,4,clone,short,4,4964.29,11639.85,11639.85,4.2948,4.2948,50,0,0.0,3.6000000000000005,15.0,47934.0,44858.60724233983,False

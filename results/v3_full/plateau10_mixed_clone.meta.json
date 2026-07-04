@@ -1,0 +1,36 @@
+{
+  "scenario": "plateau10_mixed_clone",
+  "mode": "plateau",
+  "lines": 10,
+  "voice": "clone",
+  "texts": "mixed",
+  "plateau_start_ts": 1783113114.4745564,
+  "plateau_end_ts": 1783114014.4749305,
+  "summary": {
+    "requests": 587,
+    "errors": 0,
+    "error_rate": 0.0,
+    "ttfb_p50_ms": 2955.24,
+    "ttfb_p95_ms": 4137.78,
+    "ttfb_p99_ms": 4460.74,
+    "rtf_p50": 1.9596,
+    "rtf_p95": 3.0258,
+    "rtf_max": 5.1472,
+    "underruns": 1660,
+    "audio_s_total": 5765.560000000006
+  },
+  "sla_ok": false,
+  "sla_violations": [
+    "TTFB p95 4138ms > 500ms",
+    "RTF max 5.147 > 0.8 (на каждом потоке)",
+    "underruns 1660 > 0"
+  ],
+  "gpu": {
+    "gpu_util_avg": 100.0,
+    "gpu_util_max": 100.0,
+    "vram_used_mb_max": 45748.0,
+    "vram_used_mb_min": 45746.0,
+    "cpu_busy_avg": 9.00432960893859,
+    "vram_delta_30m_mb": 2.0055710306406684
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "scenario": "nmax_mixed_cached",
+  "mode": "nmax",
+  "voice": "cached",
+  "texts": "mixed",
+  "n_max": null,
+  "history": [
+    {
+      "lines": 10,
+      "sla_ok": false,
+      "violations": [
+        "TTFB p95 4246ms > 500ms",
+        "RTF max 19.271 > 0.8 (на каждом потоке)",
+        "underruns 1497 > 0"
+      ],
+      "summary": {
+        "requests": 524,
+        "errors": 0,
+        "error_rate": 0.0,
+        "ttfb_p50_ms": 3080.08,
+        "ttfb_p95_ms": 4245.64,
+        "ttfb_p99_ms": 29047.78,
+        "rtf_p50": 2.1569,
+        "rtf_p95": 3.2467,
+        "rtf_max": 19.2709,
+        "underruns": 1497,
+        "audio_s_total": 5449.719999999995
+      }
+    }
+  ]
+}

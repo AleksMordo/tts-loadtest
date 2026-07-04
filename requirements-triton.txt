@@ -1,0 +1,4 @@
+# Транспорт Triton (backend triton_trtllm): ставится на loadgen-ВМ ansible-ролью,
+# локально нужен только для реального прогона
+tritonclient[grpc]>=2.40
+numpy>=1.24

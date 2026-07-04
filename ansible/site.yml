@@ -1,0 +1,32 @@
+---
+# Деплой стенда. Inventory генерируется из terraform output:
+#   make inventory
+# Переменные стенда приезжают из config/stand.yaml (см. group_vars/all.yml
+# и scripts/gen_group_vars.py, вызываемый из make inventory).
+
+- name: Базовая настройка всех хостов
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: GPU-хост — драйверы, docker, TTS, экспортеры
+  hosts: gpu
+  become: true
+  roles:
+    - nvidia
+    - docker
+    - tts
+    - role: monitoring
+      vars:
+        monitoring_role_mode: exporters   # на GPU только dcgm/node exporter
+
+- name: Loadgen-хост — docker, prometheus, генератор нагрузки
+  hosts: loadgen
+  become: true
+  roles:
+    - docker
+    - role: monitoring
+      vars:
+        monitoring_role_mode: server      # prometheus
+    - loadgen

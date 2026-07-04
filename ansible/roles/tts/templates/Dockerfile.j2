@@ -1,0 +1,25 @@
+# Образ TTS-сервера на основе официального runtime/python/Dockerfile CosyVoice,
+# но собирается из локально склонированного форка (COPY вместо git clone внутри
+# сборки — так фиксируется ревизия и попадает наш патченный grpc-сервер).
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /opt/CosyVoice
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    git unzip git-lfs g++ && \
+    git lfs install && rm -rf /var/lib/apt/lists/*
+
+COPY . /opt/CosyVoice
+
+RUN pip3 install -r requirements.txt --no-cache-dir
+
+# grpcio-tools нет в requirements форка; версию берём под установленный grpcio,
+# чтобы не сдвинуть зависимости tensorrt-llm
+RUN pip3 install --no-cache-dir "grpcio-tools==$(python3 -c 'import grpc; print(grpc.__version__)')" \
+    || pip3 install --no-cache-dir grpcio-tools
+
+RUN cd runtime/python/grpc && \
+    python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. cosyvoice.proto
+
+EXPOSE {{ tts_port }}

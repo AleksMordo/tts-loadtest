@@ -1,0 +1,8 @@
+---
+- name: База GPU-хоста для ручной v3-сессии
+  hosts: gpu
+  become: true
+  roles:
+    - common
+    - nvidia
+    - docker

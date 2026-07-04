@@ -1,0 +1,33 @@
+---
+# Деплой TTS. Два бэкенда (tts_backend в group_vars, генерится из config/stand.yaml):
+#   python_grpc — штатный runtime/python/grpc + наши патчи (fp16/TRT/stream).
+#                 Итог замеров: непригоден для телефонии (CPU/GIL, N_max=0 при SLA).
+#   triton      — runtime/triton_trtllm: Triton + TensorRT-LLM, decoupled streaming.
+- name: Создать каталоги сервиса
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /opt/tts
+    - /opt/tts/models
+
+- name: Склонировать FastCosyVoice (с сабмодулями)
+  ansible.builtin.git:
+    repo: "{{ tts_repo_url }}"
+    dest: /opt/tts/FastCosyVoice
+    version: "{{ tts_git_ref }}"
+    recursive: true
+    depth: 1
+    force: true
+
+# В форке потерян .gitmodules (в апстриме Matcha-TTS — сабмодуль), поэтому
+# клонируем зависимость явно; без неё падает token2wav (ModuleNotFoundError: matcha)
+- name: Matcha-TTS в third_party (в форке нет .gitmodules)
+  ansible.builtin.git:
+    repo: https://github.com/shivammehta25/Matcha-TTS
+    dest: /opt/tts/FastCosyVoice/third_party/Matcha-TTS
+    depth: 1
+
+- name: Деплой выбранного бэкенда
+  ansible.builtin.include_tasks: "{{ tts_backend }}.yml"

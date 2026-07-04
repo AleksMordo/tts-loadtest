@@ -1,0 +1,71 @@
+# Матрица нагрузочных тестов. Раннер (loadgen/runner.py) исполняет её сверху вниз
+# без участия человека: `python -m loadgen.runner --scenarios config/scenarios.yaml --profile cloud`
+#
+# Профили переопределяют defaults: cloud — боевые длительности, smoke — локальная проверка на mock.
+
+defaults:
+  # endpoint и transport перезаписываются ansible-ролью loadgen из config/stand.yaml
+  # (для grpc endpoint = host:port без схемы). Локальный smoke гоняет ws против mock.
+  endpoint: "ws://127.0.0.1:8022/tts"
+  transport: ws                          # ws | grpc | triton
+  triton_model: cosyvoice3               # имя BLS-модели в Triton (v3)
+  sample_rate: 8000
+  plateau_s: 900                         # 15-минутная полка
+  ramp:
+    step: 5                              # +5 линий
+    interval_s: 10                       # каждые 10 секунд
+  pause_s: [1.5, 4.0]                    # пауза «абонент говорит, ASR+LLM думают»
+  underrun_tolerance_ms: 50              # допуск на джиттер планировщика при детекции underrun
+  # sft spk_id для режима cached (только если задеплоена SFT-модель CosyVoice).
+  # Пусто = cached ходит через zero_shot с фиксированным референсом.
+  sft_spk_id: ""
+  texts_dir: loadgen/texts
+  ref_audio_dir: assets/ref_audio
+  results_dir: results
+
+profiles:
+  cloud: {}                              # без переопределений
+  smoke:                                 # локальный прогон против mock-сервера
+    plateau_s: 12
+    ramp: {step: 10, interval_s: 1}
+    pause_s: [0.2, 0.5]
+
+# SLA — критерии оценки полки (используются и в поиске N_max, и в отчёте)
+sla:
+  ttfb_p95_ms: 500
+  rtf_per_stream: 0.8
+  underruns: 0
+  error_rate: 0.001
+
+# ---------------------------------------------------------------------------
+# Обязательный набор: {10, 30, 100} x mixed-тексты x {cached, clone}
+# + поиск N_max на mixed/cached, + spike-тест на полке 30.
+# texts: short | long | mixed (mixed = 80% short / 20% long)
+# voice: cached | clone | mixed (mixed = 90% cached / 10% clone)
+# ---------------------------------------------------------------------------
+scenarios:
+  - {name: plateau10_mixed_cached,  mode: plateau, lines: 10,  texts: mixed, voice: cached}
+  - {name: plateau10_mixed_clone,   mode: plateau, lines: 10,  texts: mixed, voice: clone}
+  - {name: plateau30_mixed_cached,  mode: plateau, lines: 30,  texts: mixed, voice: cached}
+  - {name: plateau30_mixed_clone,   mode: plateau, lines: 30,  texts: mixed, voice: clone}
+  - {name: plateau100_mixed_cached, mode: plateau, lines: 100, texts: mixed, voice: cached}
+  - {name: plateau100_mixed_clone,  mode: plateau, lines: 100, texts: mixed, voice: clone}
+
+  # Поиск ёмкости: старт 10 линий, шаг +10 до первого нарушения SLA.
+  # N_max = последняя полка, где все SLA выполнены.
+  - {name: nmax_mixed_cached, mode: nmax, texts: mixed, voice: cached,
+     start: 10, step: 10, limit: 200}
+
+  # Spike: полка 30 линий, в середине полки мгновенное удвоение до 60.
+  # Контроль деградации TTFB до/после спайка.
+  - {name: spike30_mixed_cached, mode: spike, lines: 30, spike_factor: 2,
+     texts: mixed, voice: cached}
+
+# Набор для make smoke-local (короткая матрица, укладывается в пару минут)
+smoke_scenarios:
+  - {name: smoke_plateau10_cached, mode: plateau, lines: 10, texts: mixed, voice: cached}
+  - {name: smoke_plateau10_clone,  mode: plateau, lines: 10, texts: short, voice: clone}
+  - {name: smoke_nmax,             mode: nmax, texts: mixed, voice: cached,
+     start: 10, step: 10, limit: 60}
+  - {name: smoke_spike10,          mode: spike, lines: 10, spike_factor: 2,
+     texts: short, voice: cached}

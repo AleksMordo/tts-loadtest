@@ -1,0 +1,82 @@
+---
+- name: Скопировать репозиторий на loadgen-ВМ
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ repo_dest }}"
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.venv"
+      - "--exclude=results"
+      - "--exclude=terraform"
+
+- name: Создать venv и поставить зависимости
+  ansible.builtin.pip:
+    requirements: "{{ repo_dest }}/requirements.txt"
+    virtualenv: "{{ repo_dest }}/.venv"
+    virtualenv_command: python3 -m venv
+
+- name: Прописать sample rate модели в scenarios.yaml (defaults.sample_rate)
+  ansible.builtin.replace:
+    path: "{{ repo_dest }}/config/scenarios.yaml"
+    regexp: '^  sample_rate: \d+'
+    replace: '  sample_rate: {{ tts_sample_rate }}'
+
+- name: Прописать транспорт TTS в scenarios.yaml (defaults.transport)
+  ansible.builtin.replace:
+    path: "{{ repo_dest }}/config/scenarios.yaml"
+    regexp: '^  transport: \w+'
+    replace: '  transport: {{ tts_transport }}'
+
+- name: Прописать endpoint TTS в scenarios.yaml (defaults.endpoint)
+  vars:
+    loadgen_endpoint: >-
+      {{ (gpu_internal_ip ~ ':' ~ (tts_v3_grpc_port if tts_backend == 'triton_v3' else tts_triton_grpc_port))
+         if tts_transport == 'triton'
+         else (gpu_internal_ip ~ ':' ~ tts_port)
+         if tts_transport == 'grpc'
+         else ('ws://' ~ gpu_internal_ip ~ ':' ~ tts_port ~ '/tts') }}
+  ansible.builtin.replace:
+    path: "{{ repo_dest }}/config/scenarios.yaml"
+    regexp: '  endpoint: "[^"]+"'
+    replace: '  endpoint: "{{ loadgen_endpoint }}"'
+
+- name: Прописать имя triton-модели в scenarios.yaml
+  ansible.builtin.replace:
+    path: "{{ repo_dest }}/config/scenarios.yaml"
+    regexp: '^  triton_model: \S+'
+    replace: '  triton_model: {{ tts_v3_model_name if tts_backend == "triton_v3" else "cosyvoice2" }}'
+  when: tts_transport == 'triton'
+
+- name: Установить клиент Triton (transport == triton)
+  ansible.builtin.pip:
+    requirements: "{{ repo_dest }}/requirements-triton.txt"
+    virtualenv: "{{ repo_dest }}/.venv"
+  when: tts_transport == 'triton'
+
+- name: Сгенерировать gRPC-стабы (если транспорт grpc)
+  when: tts_transport == 'grpc'
+  block:
+    - name: Установить grpcio-tools
+      ansible.builtin.pip:
+        requirements: "{{ repo_dest }}/requirements-grpc.txt"
+        virtualenv: "{{ repo_dest }}/.venv"
+
+    - name: Сгенерировать стабы из loadgen/proto/cosyvoice.proto
+      ansible.builtin.command:
+        cmd: >-
+          {{ repo_dest }}/.venv/bin/python -m grpc_tools.protoc -Iloadgen/proto
+          --python_out=loadgen/proto --grpc_python_out=loadgen/proto loadgen/proto/cosyvoice.proto
+        chdir: "{{ repo_dest }}"
+      changed_when: true
+
+- name: Сгенерировать референс-аудио, если их нет
+  ansible.builtin.command:
+    cmd: "{{ repo_dest }}/.venv/bin/python scripts/gen_ref_audio.py"
+    chdir: "{{ repo_dest }}"
+    creates: "{{ repo_dest }}/assets/ref_audio/speaker_01.wav"
+
+- name: Отдать каталог пользователю (раннер запускается без sudo)
+  ansible.builtin.file:
+    path: "{{ repo_dest }}"
+    owner: "{{ ansible_user | default('ubuntu') }}"
+    recurse: true

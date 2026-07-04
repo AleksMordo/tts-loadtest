@@ -1,0 +1,25 @@
+services:
+  tts:
+    image: {{ tts_effective_image | default(tts_triton_image) }}
+    restart: unless-stopped
+    shm_size: '2gb'
+    working_dir: /workspace/CosyVoice/runtime/triton_trtllm
+    command: bash run.sh 3 3
+    environment:
+      - PYTHONIOENCODING=utf-8
+    # host network обязателен: через docker-proxy (ports:) decoupled-стрим
+    # Triton не доставляет ответы удалённым клиентам
+    network_mode: host
+    volumes:
+      - /opt/tts/CosyVoiceUpstream:/workspace/CosyVoice
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144

@@ -1,0 +1,3 @@
+websockets>=12,<15
+PyYAML>=6
+grpcio>=1.60          # боевой транспорт TTS — gRPC; стабы: make proto

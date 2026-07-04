@@ -1,0 +1,79 @@
+---
+# Бэкенд triton_v3: CosyVoice3 (Fun-CosyVoice3-0.5B-2512) через runtime/triton_trtllm
+# АПСТРИМА (HEAD): tritonserver (BLS cosyvoice3 + token2wav/vocoder, порты 18000-18002)
+# + trtllm-serve для LLM (порт 8000). Архитектура обходит гоночную связку
+# BLS<->tensorrt_llm-бэкенда (клин v2, issue #1866).
+# Проверено 2026-07-03: русский работает (в отличие от CosyVoice2).
+# Особенности:
+#   - xet-CDN HuggingFace (us.aws.cdn.hf.co) блокирован из YC -> HF_HUB_DISABLE_XET=1;
+#   - x_transformers/s3tokenizer нужно обновлять и в prep-, и в serve-контейнере;
+#   - network_mode: host (см. историю с docker-proxy).
+- name: Клонировать upstream CosyVoice (v3 runtime)
+  ansible.builtin.git:
+    repo: "{{ tts_triton_runtime_repo }}"
+    dest: /opt/v3/CosyVoice
+    version: "{{ tts_v3_runtime_ref }}"
+    depth: 200
+    force: true
+
+- name: Matcha-TTS в third_party
+  ansible.builtin.git:
+    repo: https://github.com/shivammehta25/Matcha-TTS
+    dest: /opt/v3/CosyVoice/third_party/Matcha-TTS
+    depth: 1
+
+- name: Настроить конкурентность BLS в run_cosyvoice3.sh
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/run_cosyvoice3.sh
+    regexp: '^bls_instance_num=\d+'
+    replace: 'bls_instance_num={{ tts_bls_instance_num }}'
+
+- name: Спуллить образ Triton
+  ansible.builtin.command:
+    cmd: docker pull {{ tts_triton_image }}
+  register: tts_triton_pull
+  changed_when: "'Downloaded newer image' in tts_triton_pull.stdout"
+
+- name: "Стадии 0-2: веса v3 + engine + model repo (одноразово, ~30-60 мин)"
+  ansible.builtin.command:
+    cmd: >-
+      docker run --rm --gpus all --shm-size=2g
+      -e PYTHONIOENCODING=utf-8
+      -e HF_HUB_DISABLE_XET=1 -e HF_HUB_ENABLE_HF_TRANSFER=0
+      -e HF_ENDPOINT={{ tts_hf_endpoint }}
+      -v /opt/v3/CosyVoice:/workspace/CosyVoice
+      -w /workspace/CosyVoice/runtime/triton_trtllm
+      {{ tts_triton_image }}
+      bash -c "pip3 install -q --upgrade x_transformers s3tokenizer && bash run_cosyvoice3.sh 0 2"
+    creates: /opt/v3/CosyVoice/runtime/triton_trtllm/trt_engines_bfloat16
+
+- name: Развернуть docker-compose.yml (v3 serve)
+  ansible.builtin.template:
+    src: triton-v3-compose.yml.j2
+    dest: /opt/tts/docker-compose.yml
+    mode: "0644"
+
+- name: Поднять CosyVoice3 (tritonserver + trtllm-serve)
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: /opt/tts
+  register: tts_up
+  changed_when: "'Started' in tts_up.stderr or 'Created' in tts_up.stderr or 'Recreated' in tts_up.stderr"
+
+- name: Дождаться готовности Triton v3 (порт 18000)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:18000/v2/health/ready"
+    status_code: 200
+  register: tts_v3_ready
+  until: tts_v3_ready.status == 200
+  retries: 90
+  delay: 10
+
+- name: Дождаться готовности trtllm-serve (порт 8000)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:8000/health"
+    status_code: 200
+  register: tts_v3_llm_ready
+  until: tts_v3_llm_ready.status == 200
+  retries: 30
+  delay: 10

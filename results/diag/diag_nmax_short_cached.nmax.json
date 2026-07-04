@@ -1,0 +1,29 @@
+{
+  "scenario": "diag_nmax_short_cached",
+  "mode": "nmax",
+  "voice": "cached",
+  "texts": "short",
+  "n_max": null,
+  "history": [
+    {
+      "lines": 1,
+      "sla_ok": false,
+      "violations": [
+        "TTFB p95 1380ms > 500ms"
+      ],
+      "summary": {
+        "requests": 1,
+        "errors": 0,
+        "error_rate": 0.0,
+        "ttfb_p50_ms": 1380.36,
+        "ttfb_p95_ms": 1380.36,
+        "ttfb_p99_ms": 1380.36,
+        "rtf_p50": 0.6966,
+        "rtf_p95": 0.6966,
+        "rtf_max": 0.6966,
+        "underruns": 0,
+        "audio_s_total": 16.8
+      }
+    }
+  ]
+}

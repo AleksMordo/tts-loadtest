@@ -1,0 +1,9 @@
+# Скопировать в terraform.tfvars и заполнить (значения — из config/stand.yaml)
+folder_id        = "b1g........."
+zone             = "ru-central1-a"
+gpu_platform_id  = "gpu-standard-v3" # A100 80GB; сверить прайс/доступность
+gpu_count        = 1
+gpu_vm_cores     = 28
+gpu_vm_memory_gb = 119
+allowed_ssh_cidr = "203.0.113.7/32" # ваш IP
+preemptible      = false            # true = дешевле; полку 100 линий гнать на обычной ВМ
