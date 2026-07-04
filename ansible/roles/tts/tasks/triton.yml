@@ -74,7 +74,7 @@
         dest: /opt/tts/Dockerfile.triton
         mode: "0644"
 
-    - name: docker build (контекст — runtime/triton_trtllm запинованного апстрима)
+    - name: Собрать образ (контекст — runtime/triton_trtllm запинованного апстрима)
       ansible.builtin.command:
         cmd: >-
           docker build -t cosyvoice-triton-stand:latest

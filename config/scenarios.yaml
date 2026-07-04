@@ -25,6 +25,9 @@ defaults:
 
 profiles:
   cloud: {}                              # без переопределений
+  tune:                                  # итерации тюнинга TTFB: короткие полки, быстрый ramp
+    plateau_s: 180
+    ramp: {step: 1, interval_s: 2}
   smoke:                                 # локальный прогон против mock-сервера
     plateau_s: 12
     ramp: {step: 10, interval_s: 1}
@@ -60,6 +63,21 @@ scenarios:
   # Контроль деградации TTFB до/после спайка.
   - {name: spike30_mixed_cached, mode: spike, lines: 30, spike_factor: 2,
      texts: mixed, voice: cached}
+
+# ---------------------------------------------------------------------------
+# Сессия тюнинга TTFB (план: docs/ttfb_tuning_plan.md).
+# Пробы гнать с --set tune_scenarios --profile tune (~15 мин на вариант конфига),
+# финальный поиск SLA-N_max — с --profile cloud --only nmax_fine_mixed_cached
+# (15-минутные полки, шаг 1 линия) уже на лучшем конфиге.
+# ---------------------------------------------------------------------------
+tune_scenarios:
+  - {name: tune_probe1, mode: plateau, lines: 1, texts: mixed, voice: cached}
+  - {name: tune_probe2, mode: plateau, lines: 2, texts: mixed, voice: cached}
+  - {name: tune_probe4, mode: plateau, lines: 4, texts: mixed, voice: cached}
+  - {name: tune_probe8, mode: plateau, lines: 8, texts: mixed, voice: cached}
+  # Финал (профиль cloud): N_max = последняя полка с выполненными SLA
+  - {name: nmax_fine_mixed_cached, mode: nmax, texts: mixed, voice: cached,
+     start: 1, step: 1, limit: 16}
 
 # Набор для make smoke-local (короткая матрица, укладывается в пару минут)
 smoke_scenarios:

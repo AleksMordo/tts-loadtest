@@ -58,8 +58,22 @@ tts:
   triton_metrics_port: 8002  # прометей скрейпит отсюда
   # BLS>1 клинит вызовы tensorrt_llm в этой сборке (2-й инстанс виснет навсегда);
   # BLS=1 стабилен, но сериализует пайплайн (конкурентность=1). См. README/отчёт.
+  # Относится только к backend triton (v2); у v3 своя ручка ниже (v3_bls_instance_num).
   bls_instance_num: 1
   triton_max_batch_size: 16
+
+  # --- тюнинг латентности v3 (сессия TTFB; дефолты = сток апстрима 074ca6d) ---
+  # Первый аудио-чанк BLS ждёт token_hop_len + 3 (pre-lookahead) LLM-токенов,
+  # т.е. при стоке 15 — 18 токенов до первого token2wav. Меньше hop = раньше
+  # первый чанк = ниже TTFB (следующие чанки растут по chunk_strategy).
+  v3_token_hop_len: 15         # кандидаты тюнинга: 5 / 8 / 10
+  v3_chunk_strategy: exponential   # exponential | time_based (model.py BLS)
+  # v3 не подвержен клину v2 (#1866): LLM вынесен в отдельный trtllm-serve,
+  # BLS зовёт его по HTTP. Сток апстрима = 10. Матрица v3_full от 2026-07-03
+  # шла с 1 (наследие v2) — вероятный источник лесенки TTFB под нагрузкой.
+  v3_bls_instance_num: 10      # кандидаты: 1 / 4 / 10
+  v3_kv_cache_fraction: 0.4    # trtllm-serve --kv_cache_free_gpu_memory_fraction
+  v3_llm_max_batch_size: 64    # trtllm-serve --max_batch_size (движок собран под 64 — не выше)
   # HF нужен для yuekai/cosyvoice2_llm (стадия 0); из YC надёжнее через зеркало
   hf_endpoint: https://huggingface.co   # прямой доступ из YC работает (проверено)
 

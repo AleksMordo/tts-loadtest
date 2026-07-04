@@ -36,6 +36,13 @@ tts_bls_instance_num: {bls_instance_num}
 tts_triton_max_batch_size: {triton_max_batch_size}
 tts_hf_endpoint: {hf_endpoint}
 
+# backend: triton_v3 — тюнинг латентности (см. config/stand.yaml)
+tts_v3_token_hop_len: {v3_token_hop_len}
+tts_v3_chunk_strategy: {v3_chunk_strategy}
+tts_v3_bls_instance_num: {v3_bls_instance_num}
+tts_v3_kv_cache_fraction: {v3_kv_cache_fraction}
+tts_v3_llm_max_batch_size: {v3_llm_max_batch_size}
+
 # backend: python_grpc
 tts_port: {port}
 tts_max_conc: {max_conc}
@@ -89,6 +96,11 @@ def main() -> None:
             bls_instance_num=tts.get("bls_instance_num", 16),
             triton_max_batch_size=tts.get("triton_max_batch_size", 16),
             hf_endpoint=tts.get("hf_endpoint", "https://huggingface.co"),
+            v3_token_hop_len=tts.get("v3_token_hop_len", 15),
+            v3_chunk_strategy=tts.get("v3_chunk_strategy", "exponential"),
+            v3_bls_instance_num=tts.get("v3_bls_instance_num", 10),
+            v3_kv_cache_fraction=tts.get("v3_kv_cache_fraction", 0.4),
+            v3_llm_max_batch_size=tts.get("v3_llm_max_batch_size", 64),
             port=tts["port"],
             max_conc=tts["max_conc"],
             stream=flag("stream"),

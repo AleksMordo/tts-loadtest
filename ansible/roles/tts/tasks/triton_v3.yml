@@ -26,7 +26,14 @@
   ansible.builtin.replace:
     path: /opt/v3/CosyVoice/runtime/triton_trtllm/run_cosyvoice3.sh
     regexp: '^bls_instance_num=\d+'
-    replace: 'bls_instance_num={{ tts_bls_instance_num }}'
+    replace: 'bls_instance_num={{ tts_v3_bls_instance_num }}'
+
+- name: "Тюнинг: флаги trtllm-serve (max batch, kv fraction) в run_cosyvoice3.sh"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/run_cosyvoice3.sh
+    regexp: '(trtllm-serve serve .*--max_batch_size )\d+(\s+--kv_cache_free_gpu_memory_fraction )[0-9.]+'
+    replace: '\g<1>{{ tts_v3_llm_max_batch_size }}\g<2>{{ tts_v3_kv_cache_fraction }}'
+  register: tts_v3_serve_flags
 
 - name: Спуллить образ Triton
   ansible.builtin.command:
@@ -47,6 +54,30 @@
       bash -c "pip3 install -q --upgrade x_transformers s3tokenizer && bash run_cosyvoice3.sh 0 2"
     creates: /opt/v3/CosyVoice/runtime/triton_trtllm/trt_engines_bfloat16
 
+# Ручки тюнинга латентности правятся прямо в model_repo_..._copy: стадия 2 после
+# первой сборки пропускается (creates-guard), поэтому смена параметра в stand.yaml
+# доезжает сюда без пересборки движка — только рестарт контейнера ниже.
+- name: "Тюнинг: token_hop_len в BLS model.py (первый чанк ждёт hop+3 токенов)"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/model_repo_cosyvoice3_copy/cosyvoice3/1/model.py
+    regexp: 'self\.token_hop_len = \d+'
+    replace: 'self.token_hop_len = {{ tts_v3_token_hop_len }}'
+  register: tts_v3_hop
+
+- name: "Тюнинг: dynamic_chunk_strategy в BLS model.py"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/model_repo_cosyvoice3_copy/cosyvoice3/1/model.py
+    regexp: '"dynamic_chunk_strategy", "\w+"'
+    replace: '"dynamic_chunk_strategy", "{{ tts_v3_chunk_strategy }}"'
+  register: tts_v3_chunk
+
+- name: "Тюнинг: число BLS-инстансов в config.pbtxt (минуя стадию 2)"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/model_repo_cosyvoice3_copy/cosyvoice3/config.pbtxt
+    regexp: 'count:\s*\d+'
+    replace: 'count: {{ tts_v3_bls_instance_num }}'
+  register: tts_v3_bls
+
 - name: Развернуть docker-compose.yml (v3 serve)
   ansible.builtin.template:
     src: triton-v3-compose.yml.j2
@@ -59,6 +90,19 @@
     chdir: /opt/tts
   register: tts_up
   changed_when: "'Started' in tts_up.stderr or 'Created' in tts_up.stderr or 'Recreated' in tts_up.stderr"
+
+# compose up -d не перезапускает контейнер при изменении примонтированных файлов;
+# если контейнер уже работал (up ничего не пересоздал), а ручки тюнинга поменялись —
+# рестартуем явно. На свежем деплое патчи легли до старта, рестарт не нужен.
+- name: Перезапустить сервис после смены параметров тюнинга
+  ansible.builtin.command:
+    cmd: docker compose restart
+    chdir: /opt/tts
+  when: >-
+    tts_up is not changed and
+    (tts_v3_hop is changed or tts_v3_chunk is changed or
+     tts_v3_bls is changed or tts_v3_serve_flags is changed)
+  changed_when: true
 
 - name: Дождаться готовности Triton v3 (порт 18000)
   ansible.builtin.uri:
