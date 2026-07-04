@@ -1,0 +1,28 @@
+{
+  "scenario": "tune_probe4",
+  "mode": "plateau",
+  "lines": 4,
+  "voice": "cached",
+  "texts": "mixed",
+  "plateau_start_ts": 1783193153.6256301,
+  "plateau_end_ts": 1783193333.6261752,
+  "summary": {
+    "requests": 102,
+    "errors": 0,
+    "error_rate": 0.0,
+    "ttfb_p50_ms": 878.17,
+    "ttfb_p95_ms": 1422.73,
+    "ttfb_p99_ms": 1903.55,
+    "rtf_p50": 0.4652,
+    "rtf_p95": 0.8161,
+    "rtf_max": 0.935,
+    "underruns": 64,
+    "audio_s_total": 1135.12
+  },
+  "sla_ok": false,
+  "sla_violations": [
+    "TTFB p95 1423ms > 500ms",
+    "RTF max 0.935 > 0.8 (на каждом потоке)",
+    "underruns 64 > 0"
+  ]
+}

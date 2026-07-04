@@ -1,0 +1,2 @@
+[tune_probe3] lines=3 req=113 ttfb_p95=558ms rtf_max=0.38 underruns=0 -> SLA FAIL: TTFB p95 558ms > 500ms
+Готово. Результаты: results/tune_probe3

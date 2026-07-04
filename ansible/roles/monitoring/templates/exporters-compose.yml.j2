@@ -1,6 +1,9 @@
 services:
   dcgm-exporter:
-    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.9-3.6.1-ubuntu22.04
+    # nvcr.io отдаёт 403 из сетей YC (2026-07-04, любой тег) — берём официальное
+    # зеркало с Docker Hub. Метрики отчёта (DCGM_FI_DEV_GPU_UTIL/FB_USED)
+    # в 4.x остались в дефолтном наборе.
+    image: docker.io/nvidia/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04
     restart: unless-stopped
     user: "0:0"          # dcgm host engine требует root внутри контейнера
     cap_add:

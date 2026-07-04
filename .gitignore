@@ -20,3 +20,9 @@ results/smoke_*/
 # Синтетический референс: python scripts/gen_ref_audio.py
 assets/ref_audio/*.wav
 assets/ref_audio/*.txt
+
+# Бэкапы референсов (реальный голос — не публиковать)
+assets/ref_backup/
+# Сохранённые terraform-планы (содержат значения tfvars)
+terraform/**/tfplan
+terraform/**/tfdestroy

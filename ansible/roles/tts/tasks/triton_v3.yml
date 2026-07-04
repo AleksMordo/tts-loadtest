@@ -78,6 +78,20 @@
     replace: 'count: {{ tts_v3_bls_instance_num }}'
   register: tts_v3_bls
 
+- name: "Тюнинг: инстансы token2wav (сток 1 — сериализует flow между линиями)"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/model_repo_cosyvoice3_copy/token2wav/config.pbtxt
+    regexp: 'count:\s*\d+'
+    replace: 'count: {{ tts_v3_token2wav_instances }}'
+  register: tts_v3_t2w
+
+- name: "Тюнинг: инстансы vocoder (сток 1)"
+  ansible.builtin.replace:
+    path: /opt/v3/CosyVoice/runtime/triton_trtllm/model_repo_cosyvoice3_copy/vocoder/config.pbtxt
+    regexp: 'count:\s*\d+'
+    replace: 'count: {{ tts_v3_vocoder_instances }}'
+  register: tts_v3_voc
+
 - name: Развернуть docker-compose.yml (v3 serve)
   ansible.builtin.template:
     src: triton-v3-compose.yml.j2
@@ -100,8 +114,8 @@
     chdir: /opt/tts
   when: >-
     tts_up is not changed and
-    (tts_v3_hop is changed or tts_v3_chunk is changed or
-     tts_v3_bls is changed or tts_v3_serve_flags is changed)
+    (tts_v3_hop is changed or tts_v3_chunk is changed or tts_v3_bls is changed or
+     tts_v3_t2w is changed or tts_v3_voc is changed or tts_v3_serve_flags is changed)
   changed_when: true
 
 - name: Дождаться готовности Triton v3 (порт 18000)

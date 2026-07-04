@@ -1,0 +1,27 @@
+{
+  "scenario": "tune_probe2",
+  "mode": "plateau",
+  "lines": 2,
+  "voice": "cached",
+  "texts": "mixed",
+  "plateau_start_ts": 1783192967.0978007,
+  "plateau_end_ts": 1783193147.0981076,
+  "summary": {
+    "requests": 62,
+    "errors": 0,
+    "error_rate": 0.0,
+    "ttfb_p50_ms": 509.89,
+    "ttfb_p95_ms": 901.82,
+    "ttfb_p99_ms": 993.11,
+    "rtf_p50": 0.2678,
+    "rtf_p95": 0.515,
+    "rtf_max": 0.6057,
+    "underruns": 8,
+    "audio_s_total": 782.4000000000001
+  },
+  "sla_ok": false,
+  "sla_violations": [
+    "TTFB p95 902ms > 500ms",
+    "underruns 8 > 0"
+  ]
+}

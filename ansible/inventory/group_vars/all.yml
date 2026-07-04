@@ -25,6 +25,8 @@ tts_hf_endpoint: https://huggingface.co
 
 # backend: triton_v3 — тюнинг латентности (см. config/stand.yaml)
 tts_v3_token_hop_len: 15
+tts_v3_token2wav_instances: 8
+tts_v3_vocoder_instances: 8
 tts_v3_chunk_strategy: exponential
 tts_v3_bls_instance_num: 10
 tts_v3_kv_cache_fraction: 0.4

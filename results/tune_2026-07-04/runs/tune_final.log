@@ -1,0 +1,2 @@
+[tune_probe2] lines=2 req=408 ttfb_p95=479ms rtf_max=0.36 underruns=0 -> OK
+Готово. Результаты: results/tune_final

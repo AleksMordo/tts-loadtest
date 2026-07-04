@@ -1,0 +1,4 @@
+[tune_probe1] lines=1 req=39 ttfb_p95=580ms rtf_max=0.37 underruns=0 -> SLA FAIL: TTFB p95 580ms > 500ms
+[tune_probe2] lines=2 req=62 ttfb_p95=902ms rtf_max=0.61 underruns=8 -> SLA FAIL: TTFB p95 902ms > 500ms; underruns 8 > 0
+[tune_probe4] lines=4 req=102 ttfb_p95=1423ms rtf_max=0.94 underruns=64 -> SLA FAIL: TTFB p95 1423ms > 500ms; RTF max 0.935 > 0.8 (на каждом потоке); underruns 64 > 0
+Готово. Результаты: results/tune_baseline2

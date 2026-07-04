@@ -1,0 +1,5 @@
+[tune_probe1] lines=1 req=41 ttfb_p95=673ms rtf_max=1.09 underruns=1 -> SLA FAIL: TTFB p95 673ms > 500ms; RTF max 1.088 > 0.8 (на каждом потоке); underruns 1 > 0
+[tune_probe2] lines=2 req=76 ttfb_p95=427ms rtf_max=0.37 underruns=9 -> SLA FAIL: underruns 9 > 0
+[tune_probe4] lines=4 req=141 ttfb_p95=651ms rtf_max=0.58 underruns=54 -> SLA FAIL: TTFB p95 651ms > 500ms; underruns 54 > 0
+[tune_probe8] lines=8 req=197 ttfb_p95=1017ms rtf_max=0.83 underruns=195 -> SLA FAIL: TTFB p95 1017ms > 500ms; RTF max 0.827 > 0.8 (на каждом потоке); underruns 195 > 0
+Готово. Результаты: results/tune_iterC

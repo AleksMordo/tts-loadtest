@@ -38,6 +38,8 @@ tts_hf_endpoint: {hf_endpoint}
 
 # backend: triton_v3 — тюнинг латентности (см. config/stand.yaml)
 tts_v3_token_hop_len: {v3_token_hop_len}
+tts_v3_token2wav_instances: {v3_token2wav_instances}
+tts_v3_vocoder_instances: {v3_vocoder_instances}
 tts_v3_chunk_strategy: {v3_chunk_strategy}
 tts_v3_bls_instance_num: {v3_bls_instance_num}
 tts_v3_kv_cache_fraction: {v3_kv_cache_fraction}
@@ -97,6 +99,8 @@ def main() -> None:
             triton_max_batch_size=tts.get("triton_max_batch_size", 16),
             hf_endpoint=tts.get("hf_endpoint", "https://huggingface.co"),
             v3_token_hop_len=tts.get("v3_token_hop_len", 15),
+            v3_token2wav_instances=tts.get("v3_token2wav_instances", 1),
+            v3_vocoder_instances=tts.get("v3_vocoder_instances", 1),
             v3_chunk_strategy=tts.get("v3_chunk_strategy", "exponential"),
             v3_bls_instance_num=tts.get("v3_bls_instance_num", 10),
             v3_kv_cache_fraction=tts.get("v3_kv_cache_fraction", 0.4),

@@ -62,11 +62,18 @@ tts:
   bls_instance_num: 1
   triton_max_batch_size: 16
 
-  # --- тюнинг латентности v3 (сессия TTFB; дефолты = сток апстрима 074ca6d) ---
-  # Первый аудио-чанк BLS ждёт token_hop_len + 3 (pre-lookahead) LLM-токенов,
-  # т.е. при стоке 15 — 18 токенов до первого token2wav. Меньше hop = раньше
-  # первый чанк = ниже TTFB (следующие чанки растут по chunk_strategy).
-  v3_token_hop_len: 15         # кандидаты тюнинга: 5 / 8 / 10
+  # --- тюнинг латентности v3. Значения ниже = ЛУЧШИЙ конфиг сессии 2026-07-04
+  # (тёплый TTFB p50/p95 265/270ms, SLA-N_max=2 на A100), разбор итераций:
+  # results/tune_2026-07-04/report.md. Крупнейший рычаг — короткий референс
+  # (5-8с вместо 14.6с: p50 -250ms), он задаётся файлом в assets/ref_audio.
+  # Первый аудио-чанк BLS ждёт token_hop_len + 3 (pre-lookahead) LLM-токенов.
+  v3_token_hop_len: 15         # сток; hop<12 рвёт стык чанков 1->2 (underruns)
+  # Сток: token2wav 1 GPU-инстанс, vocoder 1 CPU-инстанс — сериализуют пайплайн
+  # между линиями. 8 инстансов t2w съедают ~22GB VRAM (итого ~68GB) — на 40GB
+  # картах ставить 2-4.
+  v3_token2wav_instances: 8
+  v3_vocoder_instances: 8
+  # time_based — регресс: мелкие чанки × O(n²)-пересчёт вокодера = RTF>1
   v3_chunk_strategy: exponential   # exponential | time_based (model.py BLS)
   # v3 не подвержен клину v2 (#1866): LLM вынесен в отдельный trtllm-serve,
   # BLS зовёт его по HTTP. Сток апстрима = 10. Матрица v3_full от 2026-07-03

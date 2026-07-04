@@ -73,6 +73,7 @@ scenarios:
 tune_scenarios:
   - {name: tune_probe1, mode: plateau, lines: 1, texts: mixed, voice: cached}
   - {name: tune_probe2, mode: plateau, lines: 2, texts: mixed, voice: cached}
+  - {name: tune_probe3, mode: plateau, lines: 3, texts: mixed, voice: cached}
   - {name: tune_probe4, mode: plateau, lines: 4, texts: mixed, voice: cached}
   - {name: tune_probe8, mode: plateau, lines: 8, texts: mixed, voice: cached}
   # Финал (профиль cloud): N_max = последняя полка с выполненными SLA
